@@ -1,54 +1,81 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
 import os
 import numpy as np
 import cv2
 from deepface import DeepFace
+import logging
+from logging.handlers import RotatingFileHandler
+from flask_cors import CORS
+from dotenv import load_dotenv
+import requests
+import json
+from movie_recommender import MovieRecommender
 
-# Assume movie_recommender.py exists with get_movie_recommendations function
-from movie_recommender import get_movie_recommendations
+# Load environment variables
+load_dotenv()
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
+app = Flask(__name__)
+CORS(app)
 
-@app.route('/')
-def index():
-    return send_from_directory(app.template_folder, 'index.html')
+# Configure logging
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+file_handler = RotatingFileHandler('logs/app.log', maxBytes=10240, backupCount=10)
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+))
+file_handler.setLevel(logging.INFO)
+app.logger.addHandler(file_handler)
+app.logger.setLevel(logging.INFO)
+app.logger.info('Mood Movie Recommender startup')
 
-@app.route('/static/<path:path>')
-def serve_static(path):
-    return send_from_directory(app.static_folder, path)
+# Initialize movie recommender
+movie_recommender = MovieRecommender()
 
-@app.route('/process_image', methods=['POST'])
-def process_image():
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image provided'}), 400
-    
-    file = request.files['image']
-    # Read image using OpenCV
-    img_array = np.frombuffer(file.read(), np.uint8)
-    img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-    
-    if img is None:
-        return jsonify({'error': 'Invalid image format'}), 400
-    
+@app.route('/api/analyze-emotion', methods=['POST'])
+def analyze_emotion():
     try:
-        # Detect emotion using DeepFace
-        result = DeepFace.analyze(img, actions=['emotion'], enforce_detection=False)
-        emotion = result[0]['dominant_emotion']
-        
-        # Get movie recommendations based on emotion (will implement later)
-        hollywood_movies, bollywood_movies = get_movie_recommendations(emotion)
-        
-        # Placeholder response
-        # hollywood_movies = [{'title': f'Hollywood Placeholder ({emotion})', 'year': ''}]
-        # bollywood_movies = [{'title': f'Bollywood Placeholder ({emotion})', 'year': ''}]
-        
-        return jsonify({
-            'emotion': emotion,
-            'hollywood_movies': hollywood_movies,
-            'bollywood_movies': bollywood_movies
-        })
+        # Get the image data from the request
+        image_data = request.json.get('image')
+        if not image_data:
+            return jsonify({'error': 'No image data provided'}), 400
+
+        # Analyze emotion using the movie recommender
+        emotion = movie_recommender.analyze_emotion(image_data)
+        return jsonify({'emotion': emotion})
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/recommend-movies', methods=['POST'])
+def recommend_movies():
+    try:
+        # Get the emotion from the request
+        emotion = request.json.get('emotion')
+        if not emotion:
+            return jsonify({'error': 'No emotion provided'}), 400
+
+        # Get movie recommendations
+        recommendations = movie_recommender.get_recommendations(emotion)
+        return jsonify({'recommendations': recommendations})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    return jsonify({'status': 'healthy'})
+
+@app.errorhandler(404)
+def not_found_error(error):
+    app.logger.error(f'Page not found: {request.url}')
+    return jsonify({'error': 'Not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    app.logger.error(f'Server Error: {error}')
+    return jsonify({'error': 'Internal server error'}), 500
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True) 
