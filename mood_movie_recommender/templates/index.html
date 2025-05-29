@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mood Movie Recommender</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Mood Movie Recommender</h1>
+        </header>
+
+        <main>
+            <div class="camera-section">
+                <div class="camera-container">
+                    <video id="video" autoplay playsinline></video>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    <div class="camera-overlay">
+                        <div class="camera-frame"></div>
+                    </div>
+                </div>
+                <button id="captureBtn" class="btn primary">Capture Image</button>
+            </div>
+
+            <div class="results-section">
+                <div class="emotion-result">
+                    <h2>Detected Emotion</h2>
+                    <p id="emotionText">-</p>
+                </div>
+
+                <div class="movies-container">
+                    <div class="movie-list">
+                        <h2>Recommended Movies</h2>
+                        <div id="movieRecommendations" class="movie-grid"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Processing...</p>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html> 
